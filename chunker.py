@@ -1,32 +1,27 @@
 """
 Stage 2 of the pipeline: splitting documents into chunks.
 
-⚠️ THIS IS THE FILE YOU CHANGE IN MILESTONE 3.
+Milestone 3 chunking strategy for the campus_life corpus.
 
-`split_documents` below is deliberately plain. It cuts every document into
-fixed-size pieces with a fixed overlap and pays no attention to where sentences
-or paragraphs end. It works, and it is not good.
+The campus_life corpus contains short posts that usually focus on one main
+topic. During Milestone 1, I observed that useful information is normally
+contained in one sentence, one paragraph, or within the short post as a whole.
 
-On a corpus of short posts it may not cut anything at all: `campus_life` comes
-out as 88 documents and 88 chunks, because almost nothing in it reaches 800
-characters. That is the baseline, not a bug — Milestone 3 is where you decide
-whether one post should stay one chunk.
+The starter chunker used fixed 800-character windows. Because almost all of
+the campus_life documents are shorter than 800 characters, the baseline
+produced 88 documents and 88 chunks.
 
-Your job in Milestone 3 is to replace the *body* of `split_documents` with a
-strategy that fits the documents you actually read in Milestone 1. Keep the
-name and the shape of what it returns — the rest of the pipeline calls it, and
-your README has to name the function that produced your chunks.
+For my Milestone 3 strategy, I intentionally keep each campus_life document
+together as one chunk. This avoids splitting related information across
+multiple chunks and allows each retrieved chunk to stand on its own.
 
-If you get stuck for 30 minutes, `fallback_split` is the original. Switch back
-to it, write down what you saw, and move on. That's a real observation about
-your pipeline, not giving up.
+The original fallback_split function is kept below for comparison.
 """
 
 from dataclasses import dataclass
 
 import config
 from ingest import Document
-
 
 @dataclass
 class Chunk:
@@ -41,17 +36,16 @@ class Chunk:
     def label(self) -> str:
         return f"{self.source}#{self.index}"
 
-
 def fallback_split(
     documents: list[Document],
     chunk_size: int | None = None,
     overlap: int | None = None,
 ) -> list[Chunk]:
     """
-    The starter's original chunker. Fixed-size character windows with overlap.
+    The starter's original chunker.
 
-    Keep this function. Milestone 3's stop rule points back at it, and having
-    something to compare your own strategy against is useful in unit 2.
+    This uses fixed-size character windows with overlap. It is kept so the
+    Milestone 3 strategy can be compared with the original starter behavior.
     """
     chunk_size = chunk_size or config.CHUNK_SIZE
     overlap = overlap or config.CHUNK_OVERLAP
@@ -60,11 +54,14 @@ def fallback_split(
         raise ValueError("overlap has to be smaller than chunk_size")
 
     chunks: list[Chunk] = []
+
     for doc in documents:
         start = 0
         index = 0
+
         while start < len(doc.text):
             piece = doc.text[start : start + chunk_size].strip()
+
             if piece:
                 chunks.append(
                     Chunk(
@@ -75,43 +72,56 @@ def fallback_split(
                     )
                 )
                 index += 1
+
             start += chunk_size - overlap
 
     return chunks
 
-
 def split_documents(documents: list[Document]) -> list[Chunk]:
     """
-    Split documents into chunks. ⚠️ REPLACE THE BODY OF THIS IN MILESTONE 3.
+    Split campus_life documents using one complete post per chunk.
 
-    Right now it just calls the fallback. That is the plain, generic behaviour
-    the brief is talking about.
+    I chose this strategy because the campus_life documents are short posts
+    that normally focus on one topic. Keeping each document together preserves
+    the context of the post and avoids splitting useful sentences or
+    paragraphs across different chunks.
 
-    When you write your own strategy, set `produced_by` to
-    "chunker.py::split_documents" so your README's Sample Chunks section names
-    the right function. `app.py chunks` prints that string for you.
-
-    Things worth thinking about before you write any code:
-      - Are your documents short posts or long guides?
-      - Is the useful information in one sentence, or spread over a paragraph?
-      - Would splitting on paragraph breaks keep more thoughts intact than
-        splitting on a character count?
+    There is no overlap because each document is already a separate,
+    self-contained post.
     """
-    return fallback_split(documents)
+    chunks: list[Chunk] = []
 
+    for doc in documents:
+        text = doc.text.strip()
+
+        if not text:
+            continue
+
+        chunks.append(
+            Chunk(
+                text=text,
+                source=doc.source,
+                index=0,
+                produced_by="chunker.py::split_documents",
+            )
+        )
+
+    return chunks
 
 def describe(chunks: list[Chunk]) -> str:
-    """A one-line summary, printed after indexing."""
+    """Return a one-line summary of the chunks produced."""
+
     if not chunks:
         return "0 chunks"
+
     lengths = [len(c.text) for c in chunks]
+
     return (
         f"{len(chunks)} chunks, "
         f"{sum(lengths) // len(lengths)} characters on average "
         f"(shortest {min(lengths)}, longest {max(lengths)}), "
         f"produced by {chunks[0].produced_by}"
     )
-
 
 if __name__ == "__main__":
     from ingest import load_documents
