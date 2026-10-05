@@ -1,6 +1,6 @@
 # The Unofficial Guide
 
-**Name:** Kimberly Edme
+**Name:** Godson JEAN
 **Corpus:** `campus_life`
 
 ---
@@ -9,16 +9,22 @@
 
 ## What This Does
 
-The Unofficial Guide is a RAG system that answers questions using information from the `campus_life` corpus. I chose this corpus because it contains information about different parts of student life, including housing, dining, classes, registration, transportation, campus jobs, and other student resources. The system searches the documents for information related to a question and uses the information it finds to create an answer. It also uses a relevance gate so it can refuse questions when the documents do not have enough information to answer them.
+The Unofficial Guide is a RAG system that answers questions using information from the campus_life corpus. I chose this corpus because it contains information about different parts of student life, including housing, dining, classes, registration, transportation, campus jobs, and other student resources.
+
+The system searches the documents for information related to a question and uses the information it finds to create an answer. It also uses a relevance gate so it can refuse questions when the documents do not have enough information to answer them.
 
 ## Chunking Strategy
 
 **Chunk size:** 1 complete document / post per chunk
 **Overlap:** none
 
-The `campus_life` corpus contains 88 short documents. When I looked through the documents, I noticed that most of them are short and focus on one main topic. Important information is usually found in one sentence or a short paragraph. Because the documents are already short, most of them can stay together as one complete chunk without splitting important information into different pieces.
+The campus_life corpus contains 88 short documents. When I looked through the documents, I noticed that most of them are short and focus on one main topic. Important information is usually found in one sentence or a short paragraph.
 
-The current chunking results produced 88 chunks from 88 documents. Looking at the five sample chunks, each chunk can be understood without needing to read another chunk before or after it. For example, the Innisfree Hall chunk keeps the room setup, air conditioning, laundry cost, and noise information together. This makes sense for this corpus because the individual documents are already small.
+Because the documents are already short, I decided to keep each complete document or post together as one chunk instead of splitting it into fixed-size pieces. I did not use overlap because each short post already contains enough context to stand on its own.
+
+After indexing the corpus with this strategy, the system loaded 88 documents containing 27,908 characters and produced 88 chunks. The average chunk was 317 characters, the shortest was 178 characters, and the longest was 549 characters.
+
+Looking at the sample chunks below, each chunk can be understood without needing to read another chunk before or after it. This strategy keeps related information together while avoiding unnecessary overlap.
 
 ## Sample Chunks
 
@@ -78,7 +84,7 @@ Laundry costs $1.75 wash, $1.75 dry, app-based. On noise: moderate; the building
 
 ## Sample Answer
 
-**Question:** Is the housing lottery random?
+**Question:** How much does it cost to do laundry at Innisfree Hall?
 
 **Answer:**
 
@@ -86,34 +92,50 @@ Laundry costs $1.75 wash, $1.75 dry, app-based. On noise: moderate; the building
 ClientError: 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'API key not valid. Please pass a valid API key.', 'status': 'INVALID_ARGUMENT', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'API_KEY_INVALID', 'domain': 'googleapis.com', 'metadata': {'service': 'generativelanguage.googleapis.com'}}, {'@type': 'type.googleapis.com/google.rpc.LocalizedMessage', 'locale': 'en-US', 'message': 'API key not valid. Please pass a valid API key.'}]}}
 ```
 
-**My relevance cutoff:** To be finalized after testing all ten questions.
+**My relevance cutoff:**  0.6
 
-The current relevance cutoff is `0.6`. When I tested the question, "is the housing lottery random?", the best retrieval distance was `0.254`, which passed the current `0.6` cutoff. This showed that the retrieval part of the RAG system was finding a close match for the question.
+I tested five questions that should be answered by the campus_life corpus and five questions that are clearly outside the corpus.
 
-I will choose the final relevance cutoff after comparing five questions that the `campus_life` corpus can answer with five questions that are clearly outside the corpus. Lower distances mean the retrieved information is a closer match. I will compare the two groups and choose a cutoff in the gap between the relevant and unrelated questions.
+The highest best distance for an in-scope question was 0.3701. The lowest best distance for an out-of-scope question was 0.8246. This created a clear gap between the relevant and unrelated questions.
+
+I kept the relevance cutoff at 0.6 because it falls inside this gap. All five in-scope questions had best distances below 0.6, so they passed the relevance gate. All five out-of-scope questions had best distances above 0.6, so the system refused them.
+
+This means the cutoff successfully separated all 5 in-scope questions from all 5 out-of-scope questions in my Milestone 4 testing.
 
 | Question | In corpus? | Best distance |
 |---|---|---:|
-| Is the housing lottery random? | Yes | 0.254 |
-| [Test question 2] | Yes | [ACTUAL DISTANCE] |
-| [Test question 3] | Yes | [ACTUAL DISTANCE] |
-| [Test question 4] | Yes | [ACTUAL DISTANCE] |
-| [Test question 5] | Yes | [ACTUAL DISTANCE] |
-| [Out-of-scope question 1] | No | [ACTUAL DISTANCE] |
-| [Out-of-scope question 2] | No | [ACTUAL DISTANCE] |
-| [Out-of-scope question 3] | No | [ACTUAL DISTANCE] |
-| [Out-of-scope question 4] | No | [ACTUAL DISTANCE] |
-| [Out-of-scope question 5] | No | [ACTUAL DISTANCE] |
+| How much does it cost to do laundry at Innisfree Hall? | Yes | 0.1817 |
+| What is the number of pages of reading should students expect each week in HIST 118? | Yes | 0.3622 |
+| What is the total unit tests are there in BIOL 160? | Yes | 0.2819 |
+| How long would someone wait at Pellew Dining Hall during peak hours? | Yes | 0.1875 |
+| When is the last day to add a course? | Yes | 0.3701 |
+| What is the capital of Mongolia? | No | 0.8246 |
+| How do I change the oil in a diesel engine? | No | 0.9340 |
+| Who won the 1994 World Cup? | No | 0.8859 |
+| What is the recommended dosage of ibuprofen for a headache? | No | 0.8442 |
+| How do I write a for loop in Rust? | No | 0.8960 |
+
+The in-scope distances ranged from 0.1817 to 0.3701, while the out-of-scope distances ranged from 0.8246 to 0.9340. Since lower distances represent closer matches, these results support using 0.6 as my relevance cutoff.
 
 ## How I Used AI
 
-**1.** I used AI to help troubleshoot my Gemini API connection. My RAG system was retrieving information, but the model call returned an `API_KEY_INVALID` error. AI helped me use a safe command to check what API key my project was loading without showing the complete key. The result showed that the loaded value was only 13 characters long, started with `your`, and ended with `here`. This helped me discover that the program was still reading the placeholder API key instead of my actual Gemini API key. I used that information to correct the API key in my `.env` file.
+1. API troubleshooting
 
-**2.** I used AI to help me understand the output from my chunking command. I ran `python app.py chunks -n 5` myself and gave AI the actual results. AI helped me review whether the chunks could be understood by themselves and organize the real chunk text, source files, and `chunker.py::fallback_split` function into the README. I kept the actual results produced by my program instead of using made-up chunk results.
-<!-- ── Stretch features ─────────────────────────────────────────────────────
-     Doing one? Say so here BEFORE you start. A feature this README never
-     claims earns nothing.
-     ───────────────────────────────────────────────────────────────────────── -->
+I used AI to help troubleshoot my Gemini API connection. My RAG system was retrieving information correctly, but the model call returned an API_KEY_INVALID error.
+
+AI helped me use a safe command to check which API key the project was loading without displaying the complete key. The test showed that the loaded value was only 13 characters long and was still the placeholder value. This helped me identify that the program was reading the placeholder API key instead of a valid Gemini API key.
+
+I used the troubleshooting information to identify what needed to be corrected in my .env file. I did not share the complete API key.
+
+2. Chunking strategy
+
+I used AI while reviewing the starter chunking strategy and the actual structure of my campus_life corpus. The corpus contained 88 short documents, and the starter fixed-size chunker also produced 88 chunks because most documents were already shorter than the default window.
+
+After reviewing the documents and sample chunks, I decided that a better intentional strategy for this corpus was to keep each complete short post as one chunk with no overlap. I changed split_documents() to implement this strategy.
+
+I then ran the index again myself and verified that the final implementation produced 88 chunks with an average length of 317 characters, a shortest chunk of 178 characters, and a longest chunk of 549 characters.
+
+I also ran python app.py chunks -n 5 and used the actual output from my program for the five Sample Chunks above instead of creating made-up examples.
 
 ---
 
