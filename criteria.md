@@ -14,7 +14,7 @@ Under each one, write a sentence or two on **why that target** and not a stricte
 
 For at least 4 of my 5 test questions, the retrieved chunks include one that contains the answer.
 
-**Why this target:**  
+**Why this target:**
 My `campus_life` corpus covers many different topics, including housing, dining, classes, and registration. Because the questions cover different topics, I expect retrieval to be reliable, but I do not expect every question to be a perfect match. Getting at least 4 out of 5 shows that the system can find useful information across different campus topics while still allowing one question to be more difficult.
 
 ---
@@ -23,7 +23,7 @@ My `campus_life` corpus covers many different topics, including housing, dining,
 
 Every answer the system produces names at least one source document.
 
-**Why this target:**  
+**Why this target:**
 The system uses retrieved campus documents to answer questions, so a user should be able to see where the information came from. I chose every answer instead of 4 out of 5 because the retrieved documents are already available to the generation step. If the system gives an answer, I expect it to identify at least one source every time so the answer can be checked.
 
 ---
@@ -32,7 +32,7 @@ The system uses retrieved campus documents to answer questions, so a user should
 
 When I ask a question my documents clearly don't cover, the relevance gate stops it and the system returns "I don't have enough information about that" — in at least 4 of 5 tries.
 
-**Why this target:**  
+**Why this target:**
 The `campus_life` corpus is about student and campus life, so the system should not try to answer unrelated general-knowledge questions using campus documents. I chose 4 out of 5 because similarity search may occasionally find an accidental match between an unrelated question and a document. The gate should still reject most questions that are clearly outside the corpus.
 
 ---
@@ -41,7 +41,7 @@ The `campus_life` corpus is about student and campus life, so the system should 
 
 For at least 4 of 5 sampled chunks, the chunk should contain a complete thought and be understandable without needing to read another chunk before or after it.
 
-**Why this target:**  
+**Why this target:**
 The `campus_life` documents are short posts that usually focus on one main topic, so keeping the important information together is important for retrieval. I chose 4 out of 5 because most short posts should work well as standalone chunks, but I want to allow for one post that may depend more on context or contain information that is harder to understand by itself.
 
 ---
@@ -50,7 +50,7 @@ The `campus_life` documents are short posts that usually focus on one main topic
 
 For at least 4 of my 5 test questions that receive an answer, at least one source named by the system should contain information that directly supports the answer.
 
-**Why this target:**  
+**Why this target:**
 Simply naming a source is not enough if that source does not support what the system says. I want the source attribution to be useful so a user can check the document and find evidence for the answer. I chose 4 out of 5 because retrieval and generation may not always select the best supporting document, but the source should be correct for most of the test questions.
 
 ---
