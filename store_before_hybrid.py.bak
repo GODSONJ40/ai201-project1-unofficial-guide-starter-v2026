@@ -35,7 +35,7 @@ from chunker import Chunk
 
 @dataclass
 class Result:
-    """One retrieved chunk and how far it was from the question."""
+    """One retrieved chunk and how far it was from the question asked."""
 
     text: str
     source: str
