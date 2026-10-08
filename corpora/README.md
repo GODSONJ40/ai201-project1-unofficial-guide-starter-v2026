@@ -333,4 +333,4 @@ I used AI assistance to understand the RAG pipeline, review code changes, interp
 | `run_eval.py` | Repeated evaluation and raw result logs |
 | `results/` | Before and after evidence files |
 
-The project uses the same repository for both units. The raw results files should be committed alongside the README so the evaluation can be checked independently.
+The project uses the same repository for both units. The raw results files should be committed alongside the README so that the evaluation can be checked independently.
