@@ -17,6 +17,9 @@ rest of the project if they were wrong:
    install needs neither PyTorch nor a reachable Hugging Face. See `_embedder`.
 """
 
+import re
+from rank_bm25 import BM25Okapi
+
 import os
 import shutil
 from dataclasses import dataclass
@@ -185,9 +188,10 @@ def search(
     variant: str = "default",
 ) -> list[Result]:
     """
-    Retrieve the chunks closest in meaning to a question.
+    Hybrid retrieval using semantic search and BM25 keyword search.
 
-    Returns them nearest-first, each with its distance.
+    Reciprocal Rank Fusion combines both rankings.
+    Original cosine distances are preserved for the relevance gate.
     """
     top_k = top_k or config.TOP_K
     name = config.collection_name(corpus, variant)
@@ -199,24 +203,93 @@ def search(
             f"No index called '{name}'. Run `python app.py index` first."
         ) from exc
 
-    raw = collection.query(
-        query_embeddings=embed([question]),
-        n_results=min(top_k, collection.count()),
+    total = collection.count()
+    if total == 0:
+        return []
+
+    def tokenize(text: str) -> list[str]:
+        return re.findall(r"\b\w+\b", text.lower())
+
+    # Fetch the indexed chunks for keyword search.
+    stored = collection.get(
+        include=["documents", "metadatas"]
     )
 
-    results: list[Result] = []
-    for text, meta, distance in zip(
-        raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
-    ):
+    documents = stored["documents"]
+    metadatas = stored["metadatas"]
+    ids = stored["ids"]
+
+    # Semantic ranking across the corpus.
+    raw = collection.query(
+        query_embeddings=embed([question]),
+        n_results=total,
+    )
+
+    semantic_ids = raw["ids"][0]
+    semantic_distances = dict(
+        zip(semantic_ids, raw["distances"][0])
+    )
+
+    # BM25 keyword ranking.
+    tokenized = [tokenize(doc) for doc in documents]
+    bm25 = BM25Okapi(tokenized)
+    bm25_scores = bm25.get_scores(tokenize(question))
+
+    keyword_order = sorted(
+        range(total),
+        key=lambda i: bm25_scores[i],
+        reverse=True,
+    )
+
+    # Reciprocal Rank Fusion.
+    rrf_k = 60
+    combined = {}
+
+    for rank, chunk_id in enumerate(semantic_ids, start=1):
+        combined[chunk_id] = (
+            combined.get(chunk_id, 0.0)
+            + 1.0 / (rrf_k + rank)
+        )
+
+    for rank, index in enumerate(keyword_order, start=1):
+        chunk_id = ids[index]
+        combined[chunk_id] = (
+            combined.get(chunk_id, 0.0)
+            + 1.0 / (rrf_k + rank)
+        )
+
+    ranked_ids = sorted(
+        combined,
+        key=combined.get,
+        reverse=True,
+    )[:top_k]
+
+    stored_by_id = {
+        chunk_id: (doc, meta)
+        for chunk_id, doc, meta in zip(
+            ids, documents, metadatas
+        )
+    }
+
+    results = []
+
+    for chunk_id in ranked_ids:
+        doc, meta = stored_by_id[chunk_id]
+
         results.append(
             Result(
-                text=text,
+                text=doc,
                 source=str(meta.get("source", "unknown")),
-                label=f"{meta.get('source', 'unknown')}#{meta.get('index', 0)}",
-                distance=float(distance),
-                produced_by=str(meta.get("produced_by", "unknown")),
+                label=chunk_id,
+                distance=float(
+                    semantic_distances[chunk_id]
+                ),
+                produced_by=str(
+                    meta.get("produced_by", "unknown")
+                ),
             )
         )
+
     return results
 
 
